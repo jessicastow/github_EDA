@@ -9,6 +9,7 @@ output:
     number_sections: true
 ---
 
+The following packages were installed: tidyverse, lubridate, ggplot2, sf, dplyr
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
@@ -16,10 +17,18 @@ library(lubridate)
 library(ggplot2)
 library(sf)
 library(dplyr)
-
 ```
 
 # Plagiarism declaration
+
+I know that plagiarism is wrong. Plagiarism is to use another's work and pretend that it is one's own.
+I have used the required convention for citation and referencing. Each contribution to and quotation in this assignment from the work(s) of other people has been attributed, and has been cited and referenced.
+This assignment is my own work.
+I have not allowed, and will not allow, anyone to copy my work with the intention of passing it off as his or her own work.
+I acknowledge that copying someone else's assignment or essay, or part of it, is wrong, and declare that this is my own work.
+
+# Introdcution to Problem
+
 
 # Data Wrangling
 
@@ -29,7 +38,7 @@ earthquakes <-read.csv("Earthquakes 1965 - 2016.csv")
 query <- read.csv("query.csv")
 ```
 
-The column names and their respective data types for the `earthquakes`dataframe were viewed, they were as follows:
+The column names and their respective data types for the `earthquakes` dataframe were viewed, their names and datatypes were as follows:
 ```{r}
 str(earthquakes)
 ```
@@ -38,30 +47,96 @@ The column names and their respective data types for the `query` dataframe were 
 ```{r}
 str(query)
 ```
-In the `query` table the `time` column contains milliseconds and is in a different format from that in the `earthquakes` table. The miliseconds were removed from the column.
 
+In the `query` table the `time` column contains milliseconds and is in a different format from that in the `earthquakes` table. The milliseconds were removed from the column.
 ```{r}
 query <- query %>%
   mutate(time = ymd_hms(time)) # remove the milliseconds from the column
 ```
-Rename time column to datetime
+
+The `time` column was renamed to `DateTime`
 ```{r}
 #code here
 ```
 
+The `Date` and `Time` columns in the earthquake dataframe were combined into one column `DateTime` and then converted to a datetime class. 
 ```{r}
-
-earthquakes <-read.csv("Earthquakes 1965 - 2016.csv", header = TRUE)
-
 earthquakes$DateTime <- paste(earthquakes$Date, earthquakes$Time) # Combine the `Date` and `Time` columns using paste() function
 earthquakes$DateTime <- as.POSIXct(earthquakes$DateTime, format="%m/%d/%Y %H:%M:%S") # convert `DateTime` column to a POSIXct (datetime) datatype
 earthquakes$DateTime <- ymd_hms(earthquakes$DateTime) # convert to a better data format
+```
+
+The `Date` and `Time` columns in the Earthquakes dataframe were then dropped.
+```{r}
+earthquakes <- subset(earthquakes, select = -c(Date, Time))
+```
+
+
+Only the earthquake events were kept from the query and earthquakes dataframes.
+```{r}
+query <- subset(query, type == "earthquake")
+earthquakes <- subset(earthquakes, Type == "Earthquake")
+# keep rows where type is equal to earthquake
+```
+
+Drop the the `place`, `type`, `net`, `status`, `updated`, `locationSource` and `magSource` columns in the `query` dataframe
+
+Place is just a text descr not helpful for analyses
+status has to do with how data were recorded, 
+net 
+```{r}
+query <- subset(query, 
+                select = -c(place, type, net, status, updated, locationSource, magSource))
+
+colnames(query)
+```
+
+The `Type`, `Source`, `Location.Source`, `Magnitude.Source`, and `Status` columns were dropped from the `earthquake` dataframe
+```{r}
+earthquakes <- subset(earthquakes, 
+                      select = -c(Type, Source, Location.Source, Magnitude.Source, Status))
+colnames(earthquakes)
+```
+
+```{r}
+# Rename 'query' column names
+query <- rename(query,
+                DepthSeismicStation = nst,
+                DateTime = time,
+                Latitude = latitude,
+                Longitude = longitude,
+                Depth = depth,
+                Magnitude = mag, 
+                MagType = magType,
+                AzimuthalGap = gap, 
+                HorizontalDistance = dmin,
+                RootMeanSquare = rms,  
+                ID = id,
+                HorizontalError = horizontalError, 
+                DepthError = depthError,
+                MagError = magError,
+                MagnitudeSeismicStation = magNst)
+
+str(query)
+```
+
+```{r}
+earthquakes <- rename(earthquakes, 
+                      DepthError = Depth.Error,
+                      DepthSeismicStation = Depth.Seismic.Stations,
+                      MagType = Magnitude.Type, 
+                      MagError = Magnitude.Error, 
+                      MagnitudeSeismicStation = Magnitude.Seismic.Stations,
+                      AzimuthalGap = Azimuthal.Gap, 
+                      HorizontalDistance = Horizontal.Distance, 
+                      HorizontalError = Horizontal.Error,
+                      RootMeanSquare = Root.Mean.Square
+                      )
 
 str(earthquakes)
-
 ```
 
-The `Date` and `Time` columns in the Earthquakes dataframe were merged into one column `DateTime`
 ```{r}
-earthquakes$DateTime <- as.POSIXct(paste(earthquakes$Date, earthquakes$Time), format="%m/%d/%Y %H:%M:%S", tz="UTC")
+
 ```
+
