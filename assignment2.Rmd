@@ -1,30 +1,67 @@
 ---
-title: "EDA Assignment 2"
-author: "Jessica Stow"
-date: "2024-03-09"
-output: pdf_document
+title: "Exploratory Data Analysis on Earthquake Data"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(sf)
+library(dplyr)
+
 ```
 
-## R Markdown
+# Plagiarism declaration
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Data Wrangling
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+The data from the "Earthquakes 1965 - 2016.csv" and "query.csv" files were read into R as dataframes. The dataframes were named `earthquakes` and `query`.
+```{r}
+earthquakes <-read.csv("Earthquakes 1965 - 2016.csv")
+query <- read.csv("query.csv")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+The column names and their respective data types for the `earthquakes`dataframe were viewed, they were as follows:
+```{r}
+str(earthquakes)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The column names and their respective data types for the `query` dataframe were viewed, they were as follows:
+```{r}
+str(query)
+```
+In the `query` table the `time` column contains milliseconds and is in a different format from that in the `earthquakes` table. The miliseconds were removed from the column.
+
+```{r}
+query <- query %>%
+  mutate(time = ymd_hms(time)) # remove the milliseconds from the column
+```
+Rename time column to datetime
+```{r}
+#code here
+```
+
+```{r}
+
+earthquakes <-read.csv("Earthquakes 1965 - 2016.csv", header = TRUE)
+
+earthquakes$DateTime <- paste(earthquakes$Date, earthquakes$Time) # Combine the `Date` and `Time` columns using paste() function
+earthquakes$DateTime <- as.POSIXct(earthquakes$DateTime, format="%m/%d/%Y %H:%M:%S") # convert `DateTime` column to a POSIXct (datetime) datatype
+earthquakes$DateTime <- ymd_hms(earthquakes$DateTime) # convert to a better data format
+
+str(earthquakes)
+
+```
+
+The `Date` and `Time` columns in the Earthquakes dataframe were merged into one column `DateTime`
+```{r}
+earthquakes$DateTime <- as.POSIXct(paste(earthquakes$Date, earthquakes$Time), format="%m/%d/%Y %H:%M:%S", tz="UTC")
+```
