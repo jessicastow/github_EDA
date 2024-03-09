@@ -17,6 +17,7 @@ library(lubridate)
 library(ggplot2)
 library(sf)
 library(dplyr)
+library(readr)
 ```
 
 # Plagiarism declaration
@@ -54,10 +55,7 @@ query <- query %>%
   mutate(time = ymd_hms(time)) # remove the milliseconds from the column
 ```
 
-The `time` column was renamed to `DateTime`
-```{r}
-#code here
-```
+There must only be one date-time variable (note that all times are UTC).
 
 The `Date` and `Time` columns in the earthquake dataframe were combined into one column `DateTime` and then converted to a datetime class. 
 ```{r}
@@ -71,6 +69,12 @@ The `Date` and `Time` columns in the Earthquakes dataframe were then dropped.
 earthquakes <- subset(earthquakes, select = -c(Date, Time))
 ```
 
+Provide a summary of the types of events and then filter the observations to only include
+“Earthquake” type events.
+```{r}
+#code here
+```
+
 
 Only the earthquake events were kept from the query and earthquakes dataframes.
 ```{r}
@@ -79,6 +83,9 @@ earthquakes <- subset(earthquakes, Type == "Earthquake")
 # keep rows where type is equal to earthquake
 ```
 
+
+Only use common variables, i.e. similar information contained in both datasets.
+ 
 Drop the the `place`, `type`, `net`, `status`, `updated`, `locationSource` and `magSource` columns in the `query` dataframe
 
 Place is just a text descr not helpful for analyses
@@ -120,6 +127,7 @@ query <- rename(query,
 str(query)
 ```
 
+
 ```{r}
 earthquakes <- rename(earthquakes, 
                       DepthError = Depth.Error,
@@ -136,7 +144,40 @@ earthquakes <- rename(earthquakes,
 str(earthquakes)
 ```
 
+ The time frames overlap; you may use/remove these observations from either set.
+ Filter the `earthquakes` dataset to only include dates up to, but not including, 1 December 2016. 
 ```{r}
+earthquakes <- earthquakes %>% 
+  filter(DateTime < as.Date("2016-12-01"))
+
+max(earthquakes$DateTime, na.rm = TRUE) # earthquakes latest date is now 30 Nov 2016
+
+min(query$DateTime, na.rm = TRUE) # query earliest date is 1 Dec 2016
 
 ```
+Merge the data sets together
+```{r}
+df <- rbind(earthquakes, query)
 
+# write.csv(df, "earthquakes_combined.csv")
+```
+
+Add a categorical variable “Scale”, which classifies the earthquakes according to their
+magnitude. Classify and name the categories according to the “Description” column in
+the table on this page
+```{r}
+#code here
+```
+
+Explore the range of magnitudes (Richter scale) in both datasets. Is there a reason to
+exclude any measurements in either? Implement and discuss briefly.
+```{r}
+# code here
+```
+
+Report on the extent of missing data in the common variables. Is it worth keeping any of the information for variables with missing data? Likewise for common variables with a discrepancy in values. Implement and discuss briefly.
+```{r}
+# code here
+```
+
+# Initial Exploration 
