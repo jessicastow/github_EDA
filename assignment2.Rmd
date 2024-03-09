@@ -212,7 +212,7 @@ df_earthquakes <- df_earthquakes %>%
     Magnitude >= 7.0 & Magnitude <= 7.9 ~ "Major",
     Magnitude >= 8.0 & Magnitude <= 8.9 ~ "Great",
     Magnitude >= 9.0 & Magnitude <= 9.9 ~ "Extreme",
-    TRUE ~ "Not classified" # For values outside of the ranges specified 
+    TRUE ~ "Unclassified" # For values outside of the ranges specified 
   ))
 ```
 
@@ -246,6 +246,17 @@ ggplot(df, aes(x = Magnitude, fill = Dataset)) +
        y = "Frequency") +
   theme(legend.position = "right")
 ```
+Bar Plot of Counts per Scale Category
+```{r}
+ggplot(df_earthquakes, aes(x = Scale)) +
+  geom_bar() +
+  labs(title = "Bar Plot of Counts per Scale Category",
+       x = "Scale",
+       y = "Count") +
+  theme(axis.text.x = element_text(hjust = 0.5)) # Rotate x labels for better readability
+```
+
+
 Report on the extent of missing data in the common variables. Is it worth keeping any of the information for variables with missing data? Likewise for common variables with a discrepancy in values. Implement and discuss briefly.
 ```{r}
 
