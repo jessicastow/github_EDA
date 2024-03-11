@@ -1,0 +1,381 @@
+---
+title: "STA5092Z: Exploratory Data Analysis on Earthquake Data"
+author: "Jessica Stow (STWJES003)"
+date: "March 2024"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, 
+                      include = TRUE)
+```
+
+\newpage
+
+Plagiarism declaration
+
+I know that plagiarism is wrong. Plagiarism is to use another's work and pretend that it is one's own.
+I have used the required convention for citation and referencing. Each contribution to and quotation in this assignment from the work(s) of other people has been attributed, and has been cited and referenced.
+This assignment is my own work.
+I have not allowed, and will not allow, anyone to copy my work with the intention of passing it off as his or her own work.
+I acknowledge that copying someone else's assignment or essay, or part of it, is wrong, and declare that this is my own work.
+
+\newpage
+
+# Introduction to Problem
+
+Introduction to problem and dataset here.
+
+# Data Wrangling
+
+The following packages were installed: tidyverse, lubridate, ggplot2, sf, dplyr
+```{r include = FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(sf)
+library(dplyr)
+library(readr)
+```
+
+The data from the "Earthquakes 1965 - 2016.csv" and "query.csv" files were read into R as dataframes. The dataframes were named `earthquakes` and `query`.
+```{r include = FALSE}
+earthquakes <-read.csv("Earthquakes 1965 - 2016.csv")
+query <- read.csv("query.csv")
+```
+
+The column names and their respective data types for the `earthquakes` dataframe were viewed, their names and datatypes were as follows:
+```{r}
+str(earthquakes)
+```
+
+The column names and their respective data types for the `query` dataframe were viewed, they were as follows:
+```{r}
+str(query)
+```
+
+In the `query` table the `time` column contains milliseconds and is in a different format from that in the `earthquakes` table. The milliseconds were removed from the column.
+```{r}
+query <- query %>%
+  mutate(time = ymd_hms(time)) # remove the milliseconds from the column (this also formats the column to the correct data type)
+```
+
+There must only be one date-time variable (note that all times are UTC).
+
+The `Date` and `Time` columns in the earthquake dataframe were combined into one column `DateTime` and then converted to a datetime class. 
+
+```{r}
+# Exclude specified rows that are issues
+earthquakes <- earthquakes[-c(20651, 7513, 3379), ]
+```
+
+```{r}
+earthquakes$DateTime <- paste(earthquakes$Date, earthquakes$Time) # Combine the `Date` and `Time` columns using paste() function
+
+class(earthquakes$DateTime) # character
+```
+
+The DateTime column was converted to POSIXct data type using lubridates' mdy_hms function
+```{r}
+which(is.na(earthquakes$DateTime)) # no NA's
+
+# Convert
+earthquakes$DateTime <- mdy_hms(as.character(earthquakes$DateTime, format = "%m/%d/%Y %H:%M:%S"))
+
+class(earthquakes$DateTime) # "POSIXct" "POSIXt"
+```
+The `Date` and `Time` columns in the Earthquakes dataframe were then dropped.
+```{r include = FALSE}
+earthquakes <- subset(earthquakes, select = -c(Date, Time))
+```
+
+```{r}
+
+```
+
+
+Only use common variables, i.e. similar information contained in both datasets.
+ 
+The `place`, `net`, `status`, `updated`, `locationSource` and `magSource` columns were dropped from the `query` dataframe.
+```{r include = FALSE}
+query <- subset(query, 
+                select = -c(place, net, status, updated, locationSource, magSource))
+
+colnames(query)
+```
+
+The `Source`, `Location.Source`, `Magnitude.Source`, and `Status` columns were dropped from the `earthquake` dataframe
+```{r include = FALSE}
+earthquakes <- subset(earthquakes, 
+                      select = -c(Source, Location.Source, Magnitude.Source, Status))
+colnames(earthquakes)
+```
+
+The column names were renamed to match each other for when binding the tables later.
+```{r include = FALSE}
+# Rename 'query' column names
+query <- rename(query,
+                Type = type, 
+                DepthSeismicStation = nst,
+                DateTime = time,
+                Latitude = latitude,
+                Longitude = longitude,
+                Depth = depth,
+                Magnitude = mag, 
+                MagType = magType,
+                AzimuthalGap = gap, 
+                HorizontalDistance = dmin,
+                RootMeanSquare = rms,  
+                ID = id,
+                HorizontalError = horizontalError, 
+                DepthError = depthError,
+                MagError = magError,
+                MagnitudeSeismicStation = magNst)
+
+str(query)
+```
+
+
+```{r}
+earthquakes <- rename(earthquakes, 
+                      DepthError = Depth.Error,
+                      DepthSeismicStation = Depth.Seismic.Stations,
+                      MagType = Magnitude.Type, 
+                      MagError = Magnitude.Error, 
+                      MagnitudeSeismicStation = Magnitude.Seismic.Stations,
+                      AzimuthalGap = Azimuthal.Gap, 
+                      HorizontalDistance = Horizontal.Distance, 
+                      HorizontalError = Horizontal.Error,
+                      RootMeanSquare = Root.Mean.Square
+                      )
+
+str(earthquakes)
+```
+
+ The time frames overlap; you may use/remove these observations from either set.
+ Filter the `earthquakes` dataset to only include dates up to, but not including, 1 December 2016. 
+```{r include = FALSE}
+earthquakes <- earthquakes %>% 
+  filter(DateTime < as.Date("2016-12-01"))
+
+max(earthquakes$DateTime, na.rm = TRUE) # earthquakes latest date is now 30 Nov 2016
+
+min(query$DateTime, na.rm = TRUE) # query earliest date is 1 Dec 2016
+
+```
+
+A column was added to note which dataset the rows were obtained from
+```{r}
+query <- query %>%
+  mutate(Dataset = "query")
+
+earthquakes <- earthquakes %>%
+  mutate(Dataset = "earthquakes")
+```
+
+Merge the data sets together
+```{r include = FALSE}
+df <- rbind(earthquakes, query)
+df
+```
+
+Provide a summary of the types of events and then filter the observations to only include “Earthquake” type events.
+
+There are five different event types included in this data set, namely: earthquakes, nuclear explosions, rock bursts, volcanic eruptions and explosions.
+
+```{r}
+unique(df$Type)
+
+# "Earthquake"        "Nuclear Explosion" "Explosion"         "Rock Burst"        "earthquake"       
+# "volcanic eruption" "nuclear explosion"
+```
+
+Only the earthquake events were kept from the query and earthquakes dataframes.
+```{r include = FALSE}
+df_earthquakes <- subset(df, Type == c("earthquake", "Earthquake"))
+# keep rows where type is equal to earthquake
+```
+
+Add a categorical variable “Scale”, which classifies the earthquakes according to their magnitude. Classify and name the categories according to the “Description” column in the table on this page https://en.wikipedia.org/wiki/Richter_scale#cite_note-13 
+```{r}
+df_earthquakes <- df_earthquakes %>%
+  mutate(Scale = case_when(
+    Magnitude >= 1.0 & Magnitude <= 1.9 ~ "Micro",
+    Magnitude >= 2.0 & Magnitude <= 2.9 ~ "Minor",
+    Magnitude >= 3.0 & Magnitude <= 3.9 ~ "Slight",
+    Magnitude >= 4.0 & Magnitude <= 4.9 ~ "Light",
+    Magnitude >= 5.0 & Magnitude <= 5.9 ~ "Moderate",
+    Magnitude >= 6.0 & Magnitude <= 6.9 ~ "Strong",
+    Magnitude >= 7.0 & Magnitude <= 7.9 ~ "Major",
+    Magnitude >= 8.0 & Magnitude <= 8.9 ~ "Great",
+    Magnitude >= 9.0 & Magnitude <= 9.9 ~ "Extreme",
+    TRUE ~ "Unclassified" # For values outside of the ranges specified 
+  ))
+```
+
+Explore the range of magnitudes (Richter scale) in both datasets. Is there a reason to exclude any measurements in either? Implement and discuss briefly.
+
+I don't think there is any reason to exclude any measurements in either data set for the magnitude column since they all fall within the expected range of earthquakes that are of interest - between 5 and 9.1. Since most of the magnitude data lies on the lower end (below 5.6), the data are not normally distributed. However, it is important to remember that these datasets did not record minor earthquakes. 
+
+No data recorded for micro, minor, slight and light earthquake types - probably because they are only slightly felt. read more  https://en.wikipedia.org/wiki/Richter_scale#cite_note-13
+
+```{r}
+summary(df$Magnitude)
+
+min(df_earthquakes$Magnitude) # minimum 5
+median(df_earthquakes$Magnitude) # median 5.6
+max(df_earthquakes$Magnitude) # maximum 9.1
+
+ggplot(df_earthquakes, aes(x = Dataset, y = Magnitude)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + # Rotate x labels for better readability
+  labs(title = "Box Plot of Earthquake Magnitudes by Dataset",
+       x = "Dataset",
+       y = "Magnitude")
+```
+Histogram 
+```{r}
+ggplot(df, aes(x = Magnitude, fill = Dataset)) +
+  geom_histogram(position = "identity", alpha = 0.6, binwidth = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Histogram of Earthquake Magnitudes by Dataset",
+       x = "Magnitude",
+       y = "Frequency") +
+  theme(legend.position = "right")
+```
+Bar Plot of Counts per Scale Category
+```{r}
+ggplot(df_earthquakes, aes(x = Scale)) +
+  geom_bar() +
+  labs(title = "Bar Plot of Counts per Scale Category",
+       x = "Scale",
+       y = "Count") +
+  theme(axis.text.x = element_text(hjust = 0.5)) # Rotate x labels for better readability
+```
+
+
+Report on the extent of missing data in the common variables. Is it worth keeping any of the information for variables with missing data? Likewise for common variables with a discrepancy in values. Implement and discuss briefly.
+```{r}
+
+```
+
+# Initial Exploration 
+Before investigating the temporal and spatial aspects of the data, explore and describe the features. 
+
+Things we might be interested in include:
+
+- The distributions of the features. Decide which features to investigate and provide the appropriate plots/measurements.
+```{r}
+
+```
+
+- The largest earthquakes, according to magnitude. Choose a number of them and present and discuss in an appropriate way.
+
+```{r}
+top10_earthquakes <- df_earthquakes %>%
+  arrange(desc(Magnitude)) %>%
+  slice_head(n = 10)
+
+# View the top 10 largest earthquakes
+print(top10_earthquakes)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = df_earthquakes)
+```
+
+
+```{r}
+ggplot(earthquakes, aes(x = Longitude, y = Latitude, size = Magnitude)) +
+  geom_point(alpha = 0.5) +  # Adjust point transparency with alpha
+  theme_minimal() +
+  scale_size_continuous(range = c(1, 10)) +  # Adjust the size range for better visualization
+  labs(title = "Largest Earthquakes by Magnitude",
+       x = "Longitude",
+       y = "Latitude",
+       size = "Magnitude") +
+  theme(legend.position = "right")
+```
+
+- The relationship between depth and magnitude, is there any pattern worth noting? Note that the Richter scale is logarithmic, such that an increase of 1 unit corresponds to a tenfold increase in actual magnitude, and a 31-fold increase in energy. How does the picture change when adjusting the magnitude accordingly?
+```{r}
+
+```
+
+- Choose one of the types of events that were removed and briefly investigate these events. When and where did they take place? Provide a map showing this.
+
+The 
+```{r}
+df_eruption <- subset(df, Type == c("volcanic eruption"))
+# keep rows where type is equal to "volcanic eruption"
+
+# "Earthquake"        "Nuclear Explosion" "Explosion"         "Rock Burst"        "earthquake"       
+# "volcanic eruption" "nuclear explosion"
+```
+
+```{r}
+df_eruption <- st_as_sf(df_eruption, coords = c("Longitude", "Latitude"), crs = 4326)
+df_eruption %>%
+    st_crs()
+```
+
+```{r}
+df_earthquakes <- st_as_sf(df_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326)
+
+df_earthquakes %>%
+    st_crs()
+```
+
+```{r}
+plot(df_earthquakes["Magnitude"])
+```
+```{r}
+?leaflet
+leaflet(data = df_earthquakes) %>%
+    addMarkers(data = st_as_sf(df_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326))
+```
+
+```{r}
+map <- leaflet(data = df_earthquakes) %>%
+  addTiles() %>%  # Add default OpenStreetMap map tiles
+  addMarkers(
+    lng = ~Longitude, lat = ~Latitude, weight = 1,
+    radius = ~Magnitude * 10000, # Adjust the radius based on magnitude for visibility
+    color = "#ff0000", fill = TRUE, fillColor = "#ff0000",
+    opacity = 0.5, fillOpacity = 0.5)
+
+```
+
+
+# Temporal Investigation
+
+We will now investigate the frequency and severity of earthquakes over time. For this section you have freedom to choose what to focus on and how to present it, in lieu of step-by-step instructions. 
+
+Some of the questions you might like to answer are:
+- How do the frequency of earthquakes in each category compare to estimated frequencies, like those given here or here?
+- Do we observe any patterns over time? Is this a definite function of time, or perhaps an artefact of the data?
+
+
+
+# Spatial Exploration
+This task is again left mostly open-ended, with the goal being to provide a summary of the spatial distribution of the earthquakes. You may incorporate the temporal nature of the data in any way you see fit. There are various packages you can use for the plotting, although ggplot ’s map data function combined with geom polygon should prove sufficient.
+
+Note that all figures may be static, i.e. no interactivity (since it is a pdf report) and no animation is expected, although you are welcome to include some if you feel you need to!
+
+After providing the global picture, focus on three specific regions, with the corresponding questions merely acting as guidelines/suggestions:
+
+1. The country of T¨urkiye (Turkey). On 6 February 2023, a magnitude 7.8 earthquake
+devastated the southern region. How does this compare with previous occurrences in
+the region? How often do they experiences major or great earthquakes?
+2. Southern Africa, including some area off the South African coast. How many earthquakes
+have we experienced since 1965? Which was the largest?
+3. An area/country of your choosing. This could be based on your global map, or because
+you have an interest in a specific region for whatever reason.
+
+For bonus marks, append your maps with population densities to illustrate whether earthquake “hotspots” tend to threaten large human populations.
+
+End your report with a summary of the key findings. Have fun!
