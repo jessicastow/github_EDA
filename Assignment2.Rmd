@@ -28,11 +28,11 @@ I acknowledge that copying someone else's assignment or essay, or part of it, is
 
 # Introduction
 
-This report uses exploratory data analysis to wrangle, explore and present data findings using data from global earthquake occurrences (or other extreme events) over the period of 4 January 1965 until 17 March 2023. Two datasets, sourced from Kaggle **(link)** and the United States Geological Survey (USGS) **(link)**, were wrangled to create a single dataframe. Only common variables between the two datasets were included in the final dataframe. 
+This report uses exploratory data analysis to wrangle, explore and present data findings using data from global earthquake occurrences (or other extreme events) over the period of 4 January 1965 until 17 March 2023. Two datasets, sourced from [Kaggle](https://www.kaggle.com/datasets/usgs/earthquake-database) and the [United States Geological Survey (USGS)](https://earthquake.usgs.gov/earthquakes/search/) , were wrangled to create a single dataframe. Only common variables between the two datasets were included in the final dataframe. 
 
 The date-time variables were standardised (making sure there was only one column for the date-time). The challenges posed by overlapping time frames was addressed by removing observations from the Kaggle dataset. For the analysis of earthquake magnitude ranges (based on the Richter scale), outliers and inconsistencies were identified, however no data was removed as all measurements fell within the expected range. The presence of missing data (in the form of NA values) across all common variables was assessed, and the feasibility of retaining information for variables with significant missing data, or discrepancies in values, was determined. It was decided that the following variables would not be used in the analyses due to their incompleteness: **XYZ.**
 
-The dataset was filtered to include only Earthquake events, and a categorical variable "Scale" was created to classify earthquakes by magnitude as per the descriptions laid out in **link**.
+The dataset was filtered to include only Earthquake events, and a categorical variable "Scale" was created to classify earthquakes by magnitude as per the descriptions laid out in the [Richter Scale's Wikipedia page](https://en.wikipedia.org/wiki/Richter_scale#cite_note-13). Note that these descriptions are based on U.S. Geological Survey documents.
 
 The report then explores the dataset's features, examines the distribution of these features, identifies significant earthquakes by magnitude, and investigates the relationship between depth and magnitude. The initial exploration section aimed to uncover patterns and insights, and adjusted for the logarithmic nature of the Richter scale to provide a more accurate representation of magnitude. Furthermore, the temporal and spacial nature of nuclear explosion events was briefly investigated and a map to visualise these investigations was produced.
 
@@ -65,9 +65,9 @@ library(spData)
 library(webshot)
 ```
 
-The data from the "Earthquakes 1965 - 2016.csv" file (sourced from Kaggle) and the "query.csv" file (sourced from USGS) were read into R as two separate dataframes. The dataframes were named `earthquakes` and `query`, respectively.
-```{r include = FALSE}
-earthquakes <-read.csv("Earthquakes 1965 - 2016.csv")
+The data from the "Earthquakes 1965 - 2016.csv" file (sourced from [Kaggle](https://www.kaggle.com/datasets/usgs/earthquake-database)) and the "query.csv" file (sourced from [USGS](https://earthquake.usgs.gov/earthquakes/search/)) were read into R as two separate dataframes. The dataframes were named `earthquakes` and `query`, respectively.
+```{r}
+earthquakes <- read.csv("Earthquakes 1965 - 2016.csv")
 query <- read.csv("query.csv")
 ```
 
@@ -96,7 +96,7 @@ earthquakes$DateTime <- paste(earthquakes$Date, earthquakes$Time) # Combine the 
 earthquakes$DateTime <- mdy_hms(as.character(earthquakes$DateTime, 
                                              format = "%m/%d/%Y %H:%M:%S")) # convert to datetime
 
-class(earthquakes$DateTime) # Check the class has been correclty converted to "POSIXct" "POSIXt"
+class(earthquakes$DateTime) # Check the class has been converted to "POSIXct" "POSIXt" (datetime) datatype
 ```
 
 The `Date` and `Time` columns in the `earthquakes` dataframe were then dropped.
@@ -104,7 +104,7 @@ The `Date` and `Time` columns in the `earthquakes` dataframe were then dropped.
 earthquakes <- subset(earthquakes, select = -c(Date, Time))
 ```
 
-Variables that were not shared between dataframes were dropped so that only similar information contained in both datasets was used for the final unified dataframe.
+Variables that were not shared between dataframes were dropped so that only similar information contained in both datasets was used for the final unified dataframe. 
 
 For the `query` dataframe this involved dropping the following columns: `place`, `net`, `status`, `updated`, `locationSource` and `magSource` columns.
 ```{r}
@@ -162,13 +162,13 @@ str(earthquakes) # Check columns were renamed
 The time frames overlap, so the `earthquakes` dataframe to only include dates up to, but not including, 1 December 2016. 
 ```{r}
 earthquakes <- earthquakes %>% 
-  filter(DateTime < as.Date("2016-12-01"))
+  filter(DateTime < as.Date("2016-12-01")) # filter earthquakes dataframe for dates that occur before 1 December 2016
 
-max(earthquakes$DateTime, na.rm = TRUE) # earthquakes latest date is now 30 Nov 2016
+max(earthquakes$DateTime, na.rm = TRUE) # check if we filtered correctly - the earthquakes dataframe's latest date is now 30 Nov 2016
 
 min(query$DateTime, na.rm = TRUE) # query earliest date is 1 Dec 2016
 
-# There is now no overlap in dates so the dataframes can be combined.
+# There is now no overlap in dates so the dataframes can be combined
 ```
 
 A column `Dataframe` was added to note from which dataframe the rows were obtained.
@@ -185,25 +185,66 @@ The dataframes were combined into one unified dataframe `df`. The final datafram
 df <- rbind(earthquakes, query)
 head(df, n=4)
 ```
-
-There are five different event types included in this dataset, namely: earthquakes, nuclear explosions, rock bursts, volcanic eruptions and explosions.
+Checks for duplicates were done and no duplicates were found, thus none had to be removed. 
 ```{r}
-unique(df$Type)
-
-# "Earthquake"        "Nuclear Explosion" "Explosion"         "Rock Burst"        "earthquake"       
-# "volcanic eruption" "nuclear explosion"
+sum(duplicated(df)) # There were no duplicate rows 
 ```
 
-The observations were filtered to only include “Earthquake” type events.
+Corrections were done to the `Type` column to improve data consistency, e.g. all instances of "earthquake" were replaced with "Earthquake" so that these events combined into one category, instead of being separated into two. There are five different event types included in this dataset, namely: earthquakes, nuclear explosions, rock bursts, volcanic eruptions and explosions. 
 ```{r}
-df_earthquakes <- subset(df, Type == c("earthquake", "Earthquake")) # keep rows where the event type "Type" is "earthquake"
+# Replace values for better data consistency
+df$Type[df$Type == "earthquake"] <- "Earthquake" # Replace "earthquake" with "Earthquake"
+df$Type[df$Type == "nuclear explosion"] <- "Nuclear Explosion" # Replace "nuclear explosion" with "Nuclear Explosion"
+
+unique(df$Type) # Check for unique events
+length(unique(df$Type)) # 5 event types
+```
+A categorical variable “Scale”, which classifies the earthquakes according to their magnitude, was added. These scale categories were classified and assigned according to the “Description” column in the [Richter Scale Wikipedia page](https://en.wikipedia.org/wiki/Richter_scale#cite_note-13). The table has been reproduced below for reference. 
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+# Create a data frame that holds the Wiki Richter scale earthquake data
+earthquake_data <- data.frame(
+  Magnitude = c("1.0–1.9", "2.0–2.9", "3.0–3.9", "4.0–4.9", "5.0–5.9", "6.0–6.9", "7.0–7.9", "8.0–8.9", "9.0–9.9"),
+  Description = c("Micro", "Minor", "Slight", "Light", "Moderate", "Strong", "Major", "Great", "Extreme"),
+  `Typical maximum Modified Mercalli Intensity` = c("I", "I", "II to III", "IV to V", "VI to VII", "VII to IX", "VIII or higher", "VIII or higher", "VIII or higher"),
+  `Average earthquake effects` = c(
+    "Microearthquakes, not felt. Recorded by seismographs.",
+    "Felt slightly by some people. No damage to buildings.",
+    "Often felt by people, but very rarely causes damage. Shaking of indoor objects can be noticeable.",
+    "Noticeable shaking of indoor objects and rattling noises. Felt by most people in the affected area. Slightly felt outside. Generally causes zero to minimal damage. Moderate to significant damage is very unlikely. Some objects may fall off shelves or be knocked over.",
+    "Can cause damage of varying severity to poorly constructed buildings. Zero to slight damage to all other buildings. Felt by everyone.",
+    "Damage to a moderate number of well-built structures in populated areas. Earthquake-resistant structures survive with slight to moderate damage. Poorly designed structures receive moderate to severe damage. Felt in wider areas; up to hundreds of kilometers from the epicenter. Strong to violent shaking in the epicentral area.",
+    "Causes damage to most buildings, some to partially or completely collapse or receive severe damage. Well-designed structures are likely to receive damage. Felt across great distances with major damage mostly limited to 250 km from the epicenter.",
+    "Major damage to buildings, and structures likely to be destroyed. Will cause moderate to heavy damage to sturdy or earthquake-resistant buildings. Damaging in large areas. Felt in extremely large regions.",
+    "Near total destruction – severe damage or collapse to all buildings. Heavy damage and shaking extend to distant locations. Permanent changes in ground topography."
+  ),
+  `Average frequency of occurrence globally (estimated)` = c(
+    "Continual/several million per year",
+    "Over one million per year",
+    "Over 100,000 per year",
+    "10,000 to 15,000 per year",
+    "1,000 to 1,500 per year",
+    "100 to 150 per year",
+    "10 to 20 per year",
+    "One per year",
+    "One to three per century"
+  )
+)
+
+# Generate the table using knitr and kableExtra
+kable(earthquake_data, "html", align = 'c', caption = "Earthquake Intensity, Effects, and Frequency") %>%
+  kable_styling(full_width = F, position = "center", bootstrap_options = c("striped", "hover"))
+
 ```
 
-A categorical variable “Scale”, which classifies the earthquakes according to their magnitude, was added. These scale categories were classified and assigned according to the “Description” column in the table on this page https://en.wikipedia.org/wiki/Richter_scale#cite_note-13 
+
 ```{r}
 df_earthquakes <- df_earthquakes %>%
   mutate(Scale = case_when(
-    Magnitude >= 1.0 & Magnitude < 2.0 ~ "Micro",
+    Magnitude >= 1.0 & Magnitude < 2.0 ~ "Micro", 
     Magnitude >= 2.0 & Magnitude < 3.0 ~ "Minor",
     Magnitude >= 3.0 & Magnitude < 4.0 ~ "Slight",
     Magnitude >= 4.0 & Magnitude < 5.0 ~ "Light",
@@ -212,6 +253,23 @@ df_earthquakes <- df_earthquakes %>%
     Magnitude >= 7.0 & Magnitude < 8.0 ~ "Major",
     Magnitude >= 8.0 & Magnitude < 9.0 ~ "Great",
     Magnitude >= 9.0 & Magnitude < 10.0 ~ "Extreme"))
+```
+
+Of the five event types, the majority of the events were earthquakes (with 34 112 events having occurred over the entire time period), followed by nuclear explosions (176 events), volcanic eruptions (55 events), explosions (4 events) and rock burst (1 event).
+```{r}
+ggplot(df, aes(x = Type)) +
+  geom_bar() +
+  labs(title = "Counts per Event Type",
+       x = "Event Type",
+       y = "Count") +
+  geom_text(stat = 'count', 
+            aes(label = ..count..), 
+            vjust = -0.5)
+```
+
+The observations were filtered to only include “Earthquake” type events.
+```{r}
+df_earthquakes <- subset(df, Type == "Earthquake") # keep rows where the event type is "Earthquake"
 ```
 
 Explore the range of magnitudes (Richter scale) in both datasets. Is there a reason to exclude any measurements in either? Implement and discuss briefly.
@@ -226,24 +284,8 @@ summary(df$Magnitude)
 min(df_earthquakes$Magnitude) # minimum 5
 median(df_earthquakes$Magnitude) # median 5.6
 max(df_earthquakes$Magnitude) # maximum 9.1
+```
 
-ggplot(df_earthquakes, aes(x = Dataset, y = Magnitude)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + # Rotate x labels for better readability
-  labs(title = "Box Plot of Earthquake Magnitudes by Dataset",
-       x = "Dataset",
-       y = "Magnitude")
-```
-Histogram 
-```{r}
-ggplot(df, aes(x = Magnitude, fill = Dataset)) +
-  geom_histogram(position = "identity", alpha = 0.6, binwidth = 0.1) +
-  scale_fill_brewer(palette = "Set1") +
-  labs(title = "Histogram of Earthquake Magnitudes by Dataset",
-       x = "Magnitude",
-       y = "Frequency") +
-  theme(legend.position = "right")
-```
 Bar Plot of Counts per Earthquake Scale Category
 ```{r}
 ggplot(df_earthquakes, aes(x = Scale)) +
@@ -254,6 +296,26 @@ ggplot(df_earthquakes, aes(x = Scale)) +
   geom_text(stat = 'count', 
             aes(label = ..count..), 
             vjust = -0.5)
+```
+
+```{r}
+ggplot(df_earthquakes, aes(x = Dataframe, y = Magnitude)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(hjust = 0.5)) +
+  labs(title = "Box Plot of Earthquake Magnitudes by Dataset",
+       x = "Dataset",
+       y = "Magnitude")
+```
+
+Histogram 
+```{r}
+ggplot(df, aes(x = Magnitude, fill = Dataframe)) +
+  geom_histogram(position = "identity", alpha = 0.6, binwidth = 0.1) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Histogram of Earthquake Magnitudes by Dataset",
+       x = "Magnitude",
+       y = "Frequency") +
+  theme(legend.position = "right")
 ```
 
 Report on the extent of missing data in the common variables. Is it worth keeping any of the information for variables with missing data? Likewise for common variables with a discrepancy in values. Implement and discuss briefly.
@@ -282,7 +344,6 @@ Things we might be interested in include:
 ```
 
 - The largest earthquakes, according to magnitude. Choose a number of them and present and discuss in an appropriate way.
-
 ```{r}
 top10_earthquakes <- df_earthquakes %>%
   arrange(desc(Magnitude)) %>%
@@ -294,21 +355,37 @@ print(top10_earthquakes)
 
 
 ```{r}
-ggplot(earthquakes, aes(x = Longitude, y = Latitude, size = Magnitude)) +
-  geom_point(alpha = 0.5) +  # Adjust point transparency with alpha
-  theme_minimal() +
-  scale_size_continuous(range = c(1, 10)) +  # Adjust the size range for better visualization
-  labs(title = "Largest Earthquakes by Magnitude",
-       x = "Longitude",
-       y = "Latitude",
-       size = "Magnitude") +
-  theme(legend.position = "right")
+leaflet(data = top10_earthquakes) %>%
+  addTiles() %>% 
+  addMarkers(data = st_as_sf(top10_earthquakes, 
+                               coords = c("Longitude", "Latitude"), 
+                               crs = 4326)) 
 ```
 
 - The relationship between depth and magnitude, is there any pattern worth noting? Note that the Richter scale is logarithmic, such that an increase of 1 unit corresponds to a tenfold increase in actual magnitude, and a 31-fold increase in energy. How does the picture change when adjusting the magnitude accordingly?
 ```{r}
-# code here
+ggplot(df_earthquakes, aes(x = Depth, y = Magnitude)) + # Scatter plot for depth vs magnitude
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(title = 'Scatter plot of Earthquake Depth vs. Magnitude',
+       x = 'Depth (km)', y = 'Richter Magnitude')
 ```
+Depth and magnitude are the two important features of an earthquake that are important to ascertain the amount of threat posed by an earthquake. The general rule of thumb is the following: the shallower the earthquake and the larger the Richter magnitude, the greater the potential for destruction. 
+
+There appears to be no relationship between depth and magnitude (Fig 1). 
+
+Statistical tests....
+
+```{r}
+# Pearson's correlation test (assumes the data are normally distributed)
+pearson_test <- cor.test(df_earthquakes$Depth, df_earthquakes$Magnitude, method = "pearson") 
+pearson_test
+
+# Spearman's rank correlation test (assumes the data are not normally distributed)
+spearman_test <- cor.test(df_earthquakes$Depth, df_earthquakes$Magnitude, method = "spearman") 
+spearman_test
+```
+
 
 - Choose one of the types of events that were removed and briefly investigate these events. When and where did they take place? Provide a map showing this.
 
@@ -336,6 +413,7 @@ ggplot() +
 
 ```{r}
 leaflet(data = top10_earthquakes) %>%
+  addTiles() %>% 
     addMarkers(data = st_as_sf(top10_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326)) 
 ```
 
@@ -399,15 +477,128 @@ This task is again left mostly open-ended, with the goal being to provide a summ
 
 Note that all figures may be static, i.e. no interactivity (since it is a pdf report) and no animation is expected, although you are welcome to include some if you feel you need to!
 
+Global picture
+```{r}
+
+```
+
+
 After providing the global picture, focus on three specific regions, with the corresponding questions merely acting as guidelines/suggestions:
 
 1. The country of T¨urkiye (Turkey). On 6 February 2023, a magnitude 7.8 earthquake
 devastated the southern region. How does this compare with previous occurrences in
 the region? How often do they experiences major or great earthquakes?
+
+```{r}
+# Filter for earthquakes in Turkey
+earthquakes_turkey <- df_earthquakes %>%
+  filter(Latitude >= 36 & Latitude <= 42) %>% # Assume Turkey lies between 36 and 42° North of the equator
+  filter(Longitude >= 26 & Longitude <= 45) # Assume Turkey lies between 26 and 45° East of the equator
+```
+
+```{r}
+# Filter for major and great earthquakes in Turkey
+major_and_great_earthquakes_turkey <- earthquakes_turkey %>%
+  filter(Magnitude >= 7) # filter for major and great earthquakes
+```
+
+
+```{r}
+leaflet(data = major_and_great_earthquakes_turkey) %>%
+  addTiles() %>% 
+    addMarkers(data = st_as_sf(major_and_great_earthquakes_turkey, coords = c("Longitude", "Latitude"), crs = 4326)) 
+```
+
 2. Southern Africa, including some area off the South African coast. How many earthquakes
 have we experienced since 1965? Which was the largest?
-3. An area/country of your choosing. This could be based on your global map, or because
-you have an interest in a specific region for whatever reason.
+
+```{r}
+south_african_earthquakes <- df_earthquakes %>%
+  filter(Latitude >= -35 & Latitude <= -22) %>% # Assume South Africa and the coastal waters lie between 22 and 35° South of the equator
+  filter(Longitude >= 15 & Longitude <= 33) # Assume South Africa and the coastal waters lie between 15 and 33° East of the equator
+```
+
+Twelve earthquakes have occurred in Southern Africa since 1965, with nine of these occurring within South Africa's land borders, and three within Nambia's borders. No earthquakes were recorded off the coast of Southern Africa. 
+```{r}
+leaflet(data = south_african_earthquakes) %>%
+  addTiles() %>% 
+    addMarkers(data = st_as_sf(south_african_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326)) 
+```
+
+# Mentawai Earthquakes
+
+The Mentawai Region is a group of islands off the western coast of West Sumatra (Sumatera Barat) in Indonesia. This area is well-know as one of the best surfing destinations in the world due to its consistent swells, uncrowded surf and warm waters [(Perfect Wave Travel, 2024)](https://www.perfectwavetravel.com/mentawai-surf-guide/). The area lies on the 'Ring of Fire' - a string of volcanoes and sites of high seismic activity that lies on the edges of the Pacific Ocean [(National Geographic, 2024)](https://education.nationalgeographic.org/resource/plate-tectonics-ring-fire/) and thus experiences frequent earthquakes. The most devastating and well-known being the 9.1 magnitude earthquake that occurred on 26 December 2004 [(Hayes et al, 2017)](https://pubs.usgs.gov/publication/ofr20161192). This was the third largest earthquake in the world since 1900 [(Hayes et al, 2017)](https://pubs.usgs.gov/publication/ofr20161192) and resulted in a tsunami and approximately 230 000 deaths spread over fourteen countries [(Surf Aid, 2021)](https://surfaid.org/surfaid/posts/a-history-of-nias). To make matters worse, three months later the region experienced another major earthquake that left a further 1000 people dead [(Surf Aid, 2021)](https://surfaid.org/surfaid/posts/a-history-of-nias). The impact of these disasters was long-lasting and it has taken years for the local communities to rebuild themselves to what they used to be.
+
+This region is of particular interest to me since I spent two years living in the area and have experienced firsthand several moderate and one major earthquake (which triggered a tsunami warning and government order to evacuate). 
+
+My aim is to understand the frequency of earthquakes in this region and if this has changed over time. I am also interested in seeing how the major earthquake I experienced compares to previous major earthquakes. 
+
+```{r}
+# Filter data for only earthquakes in the Mentawai region
+mentawai_earthquakes <- df_earthquakes %>%
+  filter(Latitude >= -6 & Latitude <= 6) %>% # Assume the Mentawai region and its coastal waters lie between 6° North  and 6° South of the equator
+  filter(Longitude >= 95 & Longitude <= 106) # Assume the Mentawai region and its coastal waters lie between 95 and 106° East of the equator
+```
+
+
+```{r}
+# filter for only major, great and extreme earthquakes (earthquakes with a magnitude above 7 on the Richter scale)
+mentawai_earthquakes_major <- mentawai_earthquakes %>%
+  filter(Magnitude >= 7) 
+```
+
+```{r}
+# add insert to show position relative to world
+leaflet(data = mentawai_earthquakes_major) %>%
+  addTiles() %>% 
+    addMarkers(data = st_as_sf(mentawai_earthquakes_major, coords = c("Longitude", "Latitude"), crs = 4326)) 
+```
+
+```{r}
+mentawai_yearly_counts <- mentawai_earthquakes %>%
+    mutate(Year = year(DateTime)) %>%
+    group_by(Year) %>%
+    summarise(sum_counts = n(), 
+              mean_magnitude = mean(Magnitude),
+              median_magnitude = median(Magnitude),
+              date = mean(DateTime))
+
+head(mentawai_yearly_counts, n = 3)
+```
+There was high seismic activity in 2005, 2007 and the period of 2017-2022. The year 2005 experienced the most earthquakes (66 in total), with these averaging a magnitude of 5.9 on the Richter scale. 
+```{r}
+mentawai_yearly_counts %>% 
+  ggplot(aes(x = Year, y = sum_counts)) +
+  geom_line() + 
+  scale_x_continuous(breaks = seq(min(mentawai_yearly_counts$Year), 
+                                  max(mentawai_yearly_counts$Year), 
+                                  by = 5)) +
+  xlab("Time (years)") +
+  ylab("Total number of earthquakes") +
+  geom_rect(aes(xmin = 2005, xmax = 2007, ymin = -Inf, ymax = Inf), fill = "skyblue", alpha = 0.01) + # add shading for periods of high seismic activity (2005-2007)
+  geom_rect(aes(xmin = 2017, xmax = 2022, ymin = -Inf, ymax = Inf), fill = "skyblue", alpha = 0.01) + # add shading for periods of high seismic activity (2017-2022)
+  geom_vline(xintercept = 2004, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 2005, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 2004, y = Inf, label = "2004 Earthquake", angle = 90, vjust = -1, hjust = 1.2, color = "red") +
+  annotate("text", x = 2005, y = Inf, label = "2005 Earthquake", angle = 90, vjust = 1.5, hjust = 1.2, color = "red")
+```
+
+```{r}
+mentawai_yearly_counts %>% 
+  ggplot(aes(x = Year, y = median_magnitude)) +
+  geom_line() + 
+  scale_x_continuous(breaks = seq(min(mentawai_yearly_counts$Year), 
+                                  max(mentawai_yearly_counts$Year), 
+                                  by = 5)) +
+  xlab("Time (years)") +
+  ylab("Median Richter Scale magnitude") +
+  geom_rect(aes(xmin = 2005, xmax = 2007, ymin = -Inf, ymax = Inf), fill = "skyblue", alpha = 0.01) + # add shading for periods of high seismic activity (2005-2007)
+  geom_rect(aes(xmin = 2017, xmax = 2022, ymin = -Inf, ymax = Inf), fill = "skyblue", alpha = 0.01) + # add shading for periods of high seismic activity (2017-2022)
+  geom_vline(xintercept = 2004, color = "red", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 2005, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 2004, y = Inf, label = "2004 Earthquake", angle = 90, vjust = -1, hjust = 1.2, color = "red") +
+  annotate("text", x = 2005, y = Inf, label = "2005 Earthquake", angle = 90, vjust = 1.5, hjust = 1.2, color = "red")
+```
 
 For bonus marks, append your maps with population densities to illustrate whether earthquake “hotspots” tend to threaten large human populations.
 
