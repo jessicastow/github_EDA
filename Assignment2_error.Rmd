@@ -303,18 +303,14 @@ ggplot(earthquakes, aes(x = Longitude, y = Latitude, size = Magnitude)) +
 
 - The relationship between depth and magnitude, is there any pattern worth noting? Note that the Richter scale is logarithmic, such that an increase of 1 unit corresponds to a tenfold increase in actual magnitude, and a 31-fold increase in energy. How does the picture change when adjusting the magnitude accordingly?
 ```{r}
-
+# code here
 ```
 
 - Choose one of the types of events that were removed and briefly investigate these events. When and where did they take place? Provide a map showing this.
 
-The 
 ```{r}
 df_eruption <- subset(df, Type == c("volcanic eruption"))
 # keep rows where type is equal to "volcanic eruption"
-
-# "Earthquake"        "Nuclear Explosion" "Explosion"         "Rock Burst"        "earthquake"       
-# "volcanic eruption" "nuclear explosion"
 ```
 
 ```{r}
@@ -324,30 +320,8 @@ df_eruption %>%
 ```
 
 ```{r}
-df_earthquakes <- st_as_sf(df_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326)
-
-df_earthquakes %>%
-    st_crs()
-```
-
-```{r}
-plot(df_earthquakes["Magnitude"])
-```
-```{r}
-?leaflet
-leaflet(data = df_earthquakes) %>%
-    addMarkers(data = st_as_sf(df_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326))
-```
-
-```{r}
-map <- leaflet(data = df_earthquakes) %>%
-  addTiles() %>%  # Add default OpenStreetMap map tiles
-  addMarkers(
-    lng = ~Longitude, lat = ~Latitude, weight = 1,
-    radius = ~Magnitude * 10000, # Adjust the radius based on magnitude for visibility
-    color = "#ff0000", fill = TRUE, fillColor = "#ff0000",
-    opacity = 0.5, fillOpacity = 0.5)
-
+leaflet(data = top10_earthquakes) %>%
+    addMarkers(data = st_as_sf(top10_earthquakes, coords = c("Longitude", "Latitude"), crs = 4326))
 ```
 
 
